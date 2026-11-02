@@ -57,10 +57,14 @@ class CategoryListCreateView(PublicReadAdminWriteMixin, APIView):
     )
     def get(self, request):
         categories = Category.objects.all().order_by("-created_at")
-        serializer = CategorySerializer(
-            categories, many=True, context={"request": request}
-        )
+        search = request.query_params.get("search")
+
+        if search:
+            categories = categories.filter(title__icontains=search)
+
+        serializer = CategorySerializer(categories, many=True, context={"request": request})
         return Response(serializer.data)
+
 
     @extend_schema(
         summary="ساخت دسته‌بندی (فقط ادمین)",

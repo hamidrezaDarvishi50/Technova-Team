@@ -12,6 +12,8 @@ urlpatterns = [
     path("customer/otp/verify/", views.CustomerOTPVerifyView.as_view()),
     path("customer/token/refresh/", views.CustomerRefreshView.as_view()),
     path("customer/me/", views.CustomerMeView.as_view()),
+    path("customer/addresses/", views.AddressListCreateView.as_view(), name="address-list"),
+    path("customer/addresses/<int:pk>/", views.AddressDetailView.as_view(), name="address-detail"),
     
     # user
     path("user/login/", views.UserLoginView.as_view()),

@@ -9,7 +9,8 @@ services:
     container_name: "technova_app"
     command: web
     volumes:
-      - ./media:./app:/home/app
+      - ./app:/home/app
+      - ./media:/home/app/media
     ports:
       - "${APP_PORT}:${APP_PORT}"
     env_file:

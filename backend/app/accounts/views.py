@@ -167,6 +167,138 @@ class CustomerRefreshView(_BaseRefreshView):
         ).exists()
 
 
+# به views.py اپ accounts اضافه کن
+# (importهای تکراری را با بالای فایل ادغام کن)
+
+from django.db import transaction
+from django.db.models import ProtectedError
+from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import OpenApiResponse, extend_schema
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .authentication import CustomerJWTAuthentication
+from .models import Address
+from .permission import IsCustomer
+from .serializers import AddressSerializer
+
+ADDRESS_TAG = ["Customer Address"]
+
+AUTH_RESPONSES = {401: OpenApiResponse(description="احراز هویت نشده (توکن مشتری لازم است)")}
+
+
+class AddressBaseView(APIView):
+    """فقط مشتری لاگین‌شده؛ هر مشتری فقط آدرس‌های خودش را می‌بیند."""
+
+    authentication_classes = [CustomerJWTAuthentication]
+    permission_classes = [IsCustomer]
+
+    def get_address(self, request, pk):
+        # آدرس مشتری دیگر هم 404 می‌دهد (وجودش لو نمی‌رود)
+        return get_object_or_404(Address, pk=pk, customer=request.user)
+
+
+class AddressListCreateView(AddressBaseView):
+    @extend_schema(
+        tags=ADDRESS_TAG,
+        summary="لیست آدرس‌های من",
+        description="آدرس پیش‌فرض اول، بعد جدیدترین‌ها.",
+        responses={200: AddressSerializer(many=True), **AUTH_RESPONSES},
+    )
+    def get(self, request):
+        addresses = Address.objects.filter(customer=request.user).order_by(
+            "-is_default", "-created_at"
+        )
+        return Response(AddressSerializer(addresses, many=True).data)
+
+    @extend_schema(
+        tags=ADDRESS_TAG,
+        summary="افزودن آدرس",
+        description="اولین آدرس خودکار پیش‌فرض می‌شود.",
+        request=AddressSerializer,
+        responses={
+            201: AddressSerializer,
+            400: OpenApiResponse(description="داده نامعتبر"),
+            **AUTH_RESPONSES,
+        },
+    )
+    def post(self, request):
+        serializer = AddressSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save(customer=request.user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class AddressDetailView(AddressBaseView):
+    @extend_schema(
+        tags=ADDRESS_TAG,
+        summary="جزئیات یک آدرس",
+        responses={
+            200: AddressSerializer,
+            404: OpenApiResponse(description="آدرس پیدا نشد"),
+            **AUTH_RESPONSES,
+        },
+    )
+    def get(self, request, pk):
+        address = self.get_address(request, pk)
+        return Response(AddressSerializer(address).data)
+
+    @extend_schema(
+        tags=ADDRESS_TAG,
+        summary="ویرایش آدرس",
+        description="با is_default=true این آدرس پیش‌فرض می‌شود و بقیه از پیش‌فرض خارج می‌شوند.",
+        request=AddressSerializer,
+        responses={
+            200: AddressSerializer,
+            400: OpenApiResponse(description="داده نامعتبر"),
+            404: OpenApiResponse(description="آدرس پیدا نشد"),
+            **AUTH_RESPONSES,
+        },
+    )
+    def patch(self, request, pk):
+        address = self.get_address(request, pk)
+        serializer = AddressSerializer(
+            address, data=request.data, partial=True, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    @extend_schema(
+        tags=ADDRESS_TAG,
+        summary="حذف آدرس",
+        description="اگر آدرس پیش‌فرض حذف شود، جدیدترین آدرس باقی‌مانده پیش‌فرض می‌شود.",
+        responses={
+            204: OpenApiResponse(description="حذف شد"),
+            404: OpenApiResponse(description="آدرس پیدا نشد"),
+            409: OpenApiResponse(description="آدرس در سفارش‌ها استفاده شده و حذف نمی‌شود"),
+            **AUTH_RESPONSES,
+        },
+    )
+    def delete(self, request, pk):
+        address = self.get_address(request, pk)
+        was_default = address.is_default
+        try:
+            with transaction.atomic():
+                address.delete()
+                if was_default:
+                    newest = (
+                        Address.objects.filter(customer=request.user)
+                        .order_by("-created_at")
+                        .first()
+                    )
+                    if newest:
+                        newest.is_default = True
+                        newest.save(update_fields=["is_default", "updated_at"])
+        except ProtectedError:
+            return Response(
+                {"detail": "این آدرس در سفارش‌ها استفاده شده و قابل حذف نیست."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class UserRefreshView(_BaseRefreshView):
     actor = ACTOR_USER
 

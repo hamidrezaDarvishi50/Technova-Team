@@ -13,12 +13,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -i https://mirror-pypi.runflare.com/simple --upgrade pip \
-    && pip install --no-cache-dir -i https://mirror-pypi.runflare.com/simple -r requirements.txt
+# RUN pip install --no-cache-dir -i https://mirror-pypi.runflare.com/simple --upgrade pip \
+#     && pip install --no-cache-dir -i https://mirror-pypi.runflare.com/simple -r requirements.txt
+
+RUN pip install --no-cache-dir \
+    -i https://mirror-pypi.runflare.com/simple \
+    -r requirements.txt
 
 COPY ./app/ /home/app/
-COPY ./docker-entrypoint.sh /tmp/docker-entrypoint.sh
+# COPY ./docker-entrypoint.sh /tmp/docker-entrypoint.sh
+# RUN chmod +x /tmp/docker-entrypoint.sh
 
-RUN chmod +x /tmp/docker-entrypoint.sh
+COPY ./docker-entrypoint.sh /tmp/docker-entrypoint.sh
+RUN sed -i 's/\r$//' /tmp/docker-entrypoint.sh && chmod +x /tmp/docker-entrypoint.sh
 
 ENTRYPOINT ["bash", "/tmp/docker-entrypoint.sh"]

@@ -19,7 +19,6 @@ class PhoneSerializer(serializers.Serializer):
         return normalize_phone(value)  # -> 9123456789
 
 
-
 class OTPVerifySerializer(PhoneSerializer):
     code = serializers.CharField(max_length=10)
 
@@ -47,6 +46,75 @@ class CustomerSerializer(serializers.ModelSerializer):
             "favorite_products",
         ]
         read_only_fields = ["id", "phone", "created_at"]
+
+
+class AddressSerializer(serializers.ModelSerializer):
+    pass
+# به serializers.py اپ accounts اضافه کن
+# (re، transaction و to_ascii_digits را اگر قبلاً import نکرده‌ای، بالای فایل بیاور)
+
+import re
+
+from django.db import transaction
+from rest_framework import serializers
+
+from .models import Address
+from .otp import to_ascii_digits
+
+MAX_ADDRESSES_PER_CUSTOMER = 10
+
+
+class AddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Address
+        fields = [
+            "id",
+            "title",
+            "address",
+            "postal_code",
+            "is_default",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def validate_postal_code(self, value):
+        value = to_ascii_digits(value)  # اعداد فارسی هم قبول می‌شود
+        if not re.fullmatch(r"\d{10}", value):
+            raise serializers.ValidationError("کد پستی باید ۱۰ رقم باشد.")
+        return value
+
+    def validate(self, attrs):
+        customer = self.context["request"].user
+
+        if self.instance is None:
+            if customer.addresses.count() >= MAX_ADDRESSES_PER_CUSTOMER:
+                raise serializers.ValidationError(
+                    f"حداکثر {MAX_ADDRESSES_PER_CUSTOMER} آدرس می‌توانید ثبت کنید."
+                )
+        elif self.instance.is_default and attrs.get("is_default") is False:
+            raise serializers.ValidationError(
+                {"is_default": "برای تغییر آدرس پیش‌فرض، آدرس دیگری را پیش‌فرض کنید."}
+            )
+        return attrs
+
+    @transaction.atomic
+    def create(self, validated_data):
+        customer = validated_data["customer"]  # از serializer.save(customer=...) می‌آید
+
+        # اولین آدرس همیشه پیش‌فرض است
+        if not customer.addresses.exists():
+            validated_data["is_default"] = True
+        if validated_data.get("is_default"):
+            customer.addresses.update(is_default=False)
+        return super().create(validated_data)
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        if validated_data.get("is_default"):
+            instance.customer.addresses.exclude(pk=instance.pk).update(is_default=False)
+        return super().update(instance, validated_data)
+    
 
 # --------------------------------------------------------------------------
 # User (پنل)
