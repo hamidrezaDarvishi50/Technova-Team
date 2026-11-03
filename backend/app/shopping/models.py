@@ -3,14 +3,19 @@ from django.db import models
 # Create your models here.
 from django.core.validators import MinValueValidator
 from django.db import models
-
-
+from accounts.models import Customer, Address
+from products.models import Product
+from finance.models import DiscountCode
 # --------------------------------------------------------------------------
 # سبد خرید (قیمت‌ها زنده از خود محصول محاسبه می‌شوند)
-# --------------------------------------------------------------------------
+# -------------------------------------------------
+# ۲) داخل کلاس Cart، پراپرتی total_price را با این جایگزین کن
+#    (با prefetch_related("items__product") درخواست اضافه نمی‌زند)
+#
+
 class Cart(models.Model):
     customer = models.OneToOneField(
-        "accounts.Customer",
+        Customer,
         on_delete=models.CASCADE,
         related_name="cart",
     )
@@ -19,23 +24,19 @@ class Cart(models.Model):
 
     def __str__(self):
         return f"Cart({self.customer_id})"
-
+    
     @property
     def total_price(self) -> int:
-        items = self.items.select_related("product")
-        return sum(item.line_total for item in items)
-
+        return sum(item.line_total for item in self.items.all())
 
 class CartItem(models.Model):
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name="items")
     product = models.ForeignKey(
-        "products.Product",
+        Product,
         on_delete=models.CASCADE,
         related_name="cart_items",
     )
-    quantity = models.PositiveIntegerField(
-        default=1, validators=[MinValueValidator(1)]
-    )
+    quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
 
     class Meta:
         constraints = [
@@ -68,14 +69,14 @@ class Order(models.Model):
         CANCELLED = "cancelled", "Cancelled"
 
     customer = models.ForeignKey(
-        "accounts.Customer",
+        Customer,
         on_delete=models.PROTECT,  # سابقه‌ی مالی با حذف مشتری از بین نرود
         related_name="orders",
     )
 
     # آدرس: هم FK (برای ارجاع) و هم کپی متن آدرس (تا با ویرایش/حذف آدرس، سفارش عوض نشود)
     address = models.ForeignKey(
-        "accounts.Address",
+        Address,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -89,7 +90,7 @@ class Order(models.Model):
     )
 
     discount_code = models.ForeignKey(
-        "discounts.DiscountCode",  # اگر اسم اپ تخفیف فرق دارد، اینجا عوض کن
+        DiscountCode,  # اگر اسم اپ تخفیف فرق دارد، اینجا عوض کن
         on_delete=models.PROTECT,  # کد استفاده‌شده در سفارش حذف نشود
         null=True,
         blank=True,
@@ -108,6 +109,13 @@ class Order(models.Model):
     class Meta:
         ordering = ["-created_at"]
         indexes = [models.Index(fields=["customer", "status"])]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["customer", "discount_code"],
+                condition=models.Q(discount_code__isnull=False) & ~models.Q(status="cancelled"),
+                name="one_discount_use_per_customer",
+            )
+        ]
 
     def __str__(self):
         return f"Order #{self.pk} ({self.status})"
@@ -130,3 +138,23 @@ class OrderItem(models.Model):
     @property
     def line_total(self) -> int:
         return self.unit_price * self.quantity
+
+
+
+class ShopSettings(models.Model):
+    """تنظیمات فروشگاه؛ همیشه فقط یک ردیف (pk=1)."""
+
+    shipping_price = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = "shop settings"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj

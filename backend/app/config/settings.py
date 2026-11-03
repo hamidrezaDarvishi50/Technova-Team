@@ -72,6 +72,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
 ]
 
+CORS_ALLOW_CREDENTIALS = True
+
 ROOT_URLCONF = 'config.urls'
 
 TEMPLATES = [
@@ -166,6 +168,15 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 
+ORDER_PAYMENT_TIMEOUT_MINUTES = 60
+
+CELERY_BEAT_SCHEDULE = {
+    "cancel-expired-orders": {
+        "task": "shopping.tasks.cancel_expired_orders",
+        "schedule": 600.0,  # هر ۱۰ دقیقه
+    },
+}
+
 
 CACHES = {
     "default": {
@@ -185,17 +196,17 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 10,
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     #'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend',],
-    'DEFAULT_THROTTLE_CLASSES': [
-        'rest_framework.throttling.AnonRateThrottle',
-        'rest_framework.throttling.UserRateThrottle',
-    ],
+    # 'DEFAULT_THROTTLE_CLASSES': [
+    #     'rest_framework.throttling.AnonRateThrottle',
+    #     'rest_framework.throttling.UserRateThrottle',
+    # ],
 
-    "DEFAULT_THROTTLE_RATES": {
-        "otp": "10/hour",
-        "login": "1000/min",
-        "anon": "100/hour",
-        "user": "1000/hour",
-    },
+    # "DEFAULT_THROTTLE_RATES": {
+    #     "otp": "10/hour",
+    #     "login": "1000/min",
+    #     "anon": "100/hour",
+    #     "user": "1000/hour",
+    # },
 }
 
 SIMPLE_JWT = {
