@@ -28,6 +28,8 @@ urlpatterns = [
     path("api/redoc/",SpectacularRedocView.as_view(url_name="schema"),name="redoc"),
     path("products/", include("products.urls")),
     path("finance/", include("finance.urls")),
+    path("comments/", include("comment.urls")),
+    path("shopping/", include("shopping.urls")),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
