@@ -127,8 +127,6 @@ def create_order(customer, address, code_raw=None) -> Order:
         )
 
     cart = get_cart(customer)
-    # ... بقیه‌ی کد همون قبلی
-    cart = get_cart(customer)
     totals = calculate_totals(cart, code_raw)
     discount = totals["discount"]
 

@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "finance",
     "comment",
     "shopping",
+    "ticket",
 ]
 
 MIDDLEWARE = [
@@ -189,25 +190,26 @@ AUTH_USER_MODEL = 'accounts.User'
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["accounts.authentication.UserJWTAuthentication"],
-    "DEFAULT_THROTTLE_RATES": {"otp": "10/hour", "login": "10/min"},
 
     #'DEFAULT_AUTHENTICATION_CLASSES': ['rest_framework_simplejwt.authentication.JWTAuthentication'],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-    #'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend',],
-    # 'DEFAULT_THROTTLE_CLASSES': [
-    #     'rest_framework.throttling.AnonRateThrottle',
-    #     'rest_framework.throttling.UserRateThrottle',
-    # ],
+    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend',],
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
 
-    # "DEFAULT_THROTTLE_RATES": {
-    #     "otp": "10/hour",
-    #     "login": "1000/min",
-    #     "anon": "100/hour",
-    #     "user": "1000/hour",
-    # },
+    "DEFAULT_THROTTLE_RATES": {
+        "otp": "10/hour",
+        "login": "1000/min",
+        "anon": "100/hour",
+        "user": "1000/hour",
+        "contact": "5/hour",
+    },
 }
+
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=3),
