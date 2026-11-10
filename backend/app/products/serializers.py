@@ -92,6 +92,8 @@ class ProductFilterSerializer(serializers.Serializer):
 
     SORT_CHOICES = ["newest", "most_expensive", "cheapest", "best_selling"]
 
+    search = serializers.CharField(required=False, allow_blank=True)
+    
     sort = serializers.ChoiceField(
         choices=SORT_CHOICES,
         required=False,

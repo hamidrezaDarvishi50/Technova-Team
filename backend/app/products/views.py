@@ -17,7 +17,8 @@ from .serializers import *
 from accounts.authentication import CustomerJWTAuthentication
 from accounts.permission import IsCustomer
 
-from django.db.models import BigIntegerField, ExpressionWrapper, F, ProtectedError
+from django.db.models import BigIntegerField, ExpressionWrapper, F, ProtectedError, Q
+
 from django.db.models.functions import Cast
 
 
@@ -232,6 +233,8 @@ def apply_filters(queryset, params):
         queryset = queryset.filter(effective_price__gte=params["min_price"])
     if "max_price" in params:
         queryset = queryset.filter(effective_price__lte=params["max_price"])
+    if "search" in params and params["search"]:
+        queryset = queryset.filter(Q(name__icontains=params["search"]))
     return queryset.order_by(*SORT_ORDERING[params["sort"]])
 
 

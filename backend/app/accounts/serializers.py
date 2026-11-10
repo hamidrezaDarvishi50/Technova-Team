@@ -1,22 +1,17 @@
 import re
-
 from django.contrib.auth import authenticate, password_validation
 from django.db import transaction
 from rest_framework import serializers
 
-from .models import Customer, User, UserAccess
+from .models import Customer, User, UserAccess, Address
 from .utils import normalize_phone
 from .otp import OTP_LENGTH, to_ascii_digits
 
-
-# --------------------------------------------------------------------------
-# Customer (OTP)
-# --------------------------------------------------------------------------
 class PhoneSerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=20)
 
     def validate_phone(self, value):
-        return normalize_phone(value)  # -> 9123456789
+        return normalize_phone(value)
 
 
 class OTPVerifySerializer(PhoneSerializer):
@@ -48,21 +43,7 @@ class CustomerSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "phone", "created_at"]
 
 
-class AddressSerializer(serializers.ModelSerializer):
-    pass
-# به serializers.py اپ accounts اضافه کن
-# (re، transaction و to_ascii_digits را اگر قبلاً import نکرده‌ای، بالای فایل بیاور)
-
-import re
-
-from django.db import transaction
-from rest_framework import serializers
-
-from .models import Address
-from .otp import to_ascii_digits
-
 MAX_ADDRESSES_PER_CUSTOMER = 10
-
 
 class AddressSerializer(serializers.ModelSerializer):
     class Meta:
@@ -116,9 +97,6 @@ class AddressSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
     
 
-# --------------------------------------------------------------------------
-# User (پنل)
-# --------------------------------------------------------------------------
 class UserLoginSerializer(serializers.Serializer):
     username = serializers.CharField()
     password = serializers.CharField(write_only=True, trim_whitespace=False)
