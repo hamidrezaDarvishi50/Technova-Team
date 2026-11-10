@@ -2,7 +2,7 @@ from django.shortcuts import render
 
 # Create your views here.
 from accounts.authentication import CustomerJWTAuthentication, UserJWTAuthentication
-from accounts.permission import IsAdminRole, IsCustomer
+from accounts.permission import IsAdminRole, IsCustomer, HasSectionPermission
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiResponse, extend_schema
@@ -11,7 +11,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import SAFE_METHODS, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
+from rest_framework.exceptions import PermissionDenied
 from . import services
 from .models import Cart, CartItem, Order, ShopSettings
 from .serializers import *
@@ -40,12 +40,10 @@ class CustomerBase(APIView):
 
 class AdminBase(APIView):
     authentication_classes = [UserJWTAuthentication]
-    permission_classes = [IsAdminRole]
+    permission_classes = [HasSectionPermission]
+    permission_section = "orders"
 
 
-# --------------------------------------------------------------------------
-# سبد خرید (مشتری)
-# --------------------------------------------------------------------------
 class CartView(CustomerBase):
     @extend_schema(
         tags=CART_TAG,
@@ -153,9 +151,6 @@ class CartItemDetailView(CustomerBase):
         return Response(CartSerializer(cart, context={"request": request}).data)
 
 
-# --------------------------------------------------------------------------
-# سفارش (مشتری)
-# --------------------------------------------------------------------------
 class OrderListCreateView(CustomerBase):
     @extend_schema(
         tags=ORDER_TAG,
@@ -256,9 +251,6 @@ class OrderCancelView(CustomerBase):
         return Response(OrderSerializer(order).data)
 
 
-# --------------------------------------------------------------------------
-# مدیریت سفارش‌ها (ادمین)
-# --------------------------------------------------------------------------
 class OrderManageListView(AdminBase):
     @extend_schema(
         tags=ADMIN_ORDER_TAG,
@@ -308,17 +300,18 @@ class OrderManageDetailView(AdminBase):
     def patch(self, request, pk):
         serializer = OrderStatusSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
+        new_status = serializer.validated_data["status"]
+        if not request.user.can_set_order_status(new_status):
+            raise PermissionDenied("شما اجازه‌ی تغییر سفارش به این وضعیت را ندارید.")
         services.change_status(pk, serializer.validated_data["status"])
         order = order_queryset().get(pk=pk)
         return Response(OrderAdminSerializer(order).data)
 
 
-# --------------------------------------------------------------------------
-# هزینه‌ی ارسال
-# --------------------------------------------------------------------------
 class ShippingPriceView(APIView):
     """GET: عمومی | PATCH: فقط ادمین."""
+    
+    permission_section = "settings"
 
     def _is_safe_request(self):
         request = getattr(self, "request", None)
@@ -332,7 +325,7 @@ class ShippingPriceView(APIView):
     def get_permissions(self):
         if self._is_safe_request():
             return [AllowAny()]
-        return [IsAdminRole()]
+        return [HasSectionPermission()]
 
     @extend_schema(
         tags=ORDER_TAG,

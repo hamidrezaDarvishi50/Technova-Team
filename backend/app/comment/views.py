@@ -3,7 +3,7 @@ from django.shortcuts import render
 # Create your views here.
 
 from accounts.authentication import CustomerJWTAuthentication, UserJWTAuthentication
-from accounts.permission import IsAdminRole, IsCustomer
+from accounts.permission import IsAdminRole, IsCustomer, HasSectionPermission
 from django.db import IntegrityError
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiResponse, extend_schema
@@ -12,7 +12,6 @@ from rest_framework.permissions import SAFE_METHODS, AllowAny
 from rest_framework.response import Response
 from rest_framework.request import Request
 from rest_framework.views import APIView
-
 from .models import Comment
 from products.models import Product
 from .serializers import *
@@ -27,9 +26,6 @@ ADMIN_RESPONSES = {
 }
 
 
-# --------------------------------------------------------------------------
-# مشتری / عمومی
-# --------------------------------------------------------------------------
 class ProductCommentListCreateView(APIView):
     """GET: عمومی (بدون لاگین) | POST: فقط مشتری لاگین‌شده."""
 
@@ -144,12 +140,10 @@ class MyCommentDetailView(CustomerCommentBase):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-# --------------------------------------------------------------------------
-# ادمین
-# --------------------------------------------------------------------------
 class AdminCommentBase(APIView):
-    authentication_classes = [UserJWTAuthentication]
-    permission_classes = [IsAdminRole]
+    authentication_classes = [HasSectionPermission]
+    permission_classes = [HasSectionPermission]
+    permission_section = "comments"
 
 
 class CommentManageListView(AdminCommentBase):

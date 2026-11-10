@@ -13,9 +13,10 @@ from drf_spectacular.utils import extend_schema, OpenApiResponse
 from accounts.permission import IsAdminRole
 from .models import Category, Product
 from .serializers import *
+from .pagination import ProductPagination
 
 from accounts.authentication import CustomerJWTAuthentication
-from accounts.permission import IsCustomer
+from accounts.permission import IsCustomer, HasSectionPermission
 
 from django.db.models import BigIntegerField, ExpressionWrapper, F, ProtectedError, Q
 
@@ -32,7 +33,7 @@ class PublicReadAdminWriteMixin:
     """
 
     parser_classes = [MultiPartParser, FormParser, JSONParser]
-
+    permission_section = "products"
 
     def _is_safe_request(self):
         request = getattr(self, "request", None)
@@ -46,7 +47,7 @@ class PublicReadAdminWriteMixin:
     def get_permissions(self):
         if self._is_safe_request():
             return [AllowAny()]
-        return [IsAdminRole()]
+        return [HasSectionPermission()]
     
     
 class CategoryListCreateView(PublicReadAdminWriteMixin, APIView):

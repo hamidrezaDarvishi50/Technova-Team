@@ -13,10 +13,12 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
-
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiResponse
+from django.conf import settings
 
-from . import otp
+from django.db import transaction
+from django.db.models import ProtectedError, Count
+from django.shortcuts import get_object_or_404
 from .authentication import (
     ACTOR_CUSTOMER,
     ACTOR_USER,
@@ -24,11 +26,15 @@ from .authentication import (
     tokens_for_customer,
     tokens_for_user,
 )
-from .models import Customer, User
+
+from . import otp
+from .models import Customer, User, Address, Role
 from .permission import IsAdminRole, IsCustomer, IsStaffUser
 from .serializers import *
 from .tasks import send_otp_sms
-from django.conf import settings
+from .authentication import CustomerJWTAuthentication, UserJWTAuthentication
+from .permission import IsCustomer
+from .access import ACTIONS, ORDER_STATUSES, SECTIONS
 
 
 class CustomerOTPRequestView(APIView):
@@ -167,26 +173,9 @@ class CustomerRefreshView(_BaseRefreshView):
         ).exists()
 
 
-# به views.py اپ accounts اضافه کن
-# (importهای تکراری را با بالای فایل ادغام کن)
-
-from django.db import transaction
-from django.db.models import ProtectedError
-from django.shortcuts import get_object_or_404
-from drf_spectacular.utils import OpenApiResponse, extend_schema
-from rest_framework import status
-from rest_framework.response import Response
-from rest_framework.views import APIView
-
-from .authentication import CustomerJWTAuthentication
-from .models import Address
-from .permission import IsCustomer
-from .serializers import AddressSerializer
 
 ADDRESS_TAG = ["Customer Address"]
-
 AUTH_RESPONSES = {401: OpenApiResponse(description="احراز هویت نشده (توکن مشتری لازم است)")}
-
 
 class AddressBaseView(APIView):
     """فقط مشتری لاگین‌شده؛ هر مشتری فقط آدرس‌های خودش را می‌بیند."""
@@ -382,7 +371,7 @@ class UserMeView(APIView):
     ),
 )
 class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.select_related("access").order_by("-id")
+    queryset = User.objects.select_related("role", "access").order_by("-id")
     permission_classes = [IsAdminRole]
 
     def get_serializer_class(self):
@@ -396,3 +385,120 @@ class UserViewSet(viewsets.ModelViewSet):
             raise ValidationError("نمی‌توانید حساب خودتان را غیرفعال کنید.")
         instance.is_active = False
         instance.save(update_fields=["is_active", "updated_at"])
+
+
+ROLE_TAG = ["Role"]
+ADMIN_AUTH = {
+    401: OpenApiResponse(description="احراز هویت نشده"),
+    403: OpenApiResponse(description="دسترسی ندارید (فقط ادمین)"),
+}
+
+def roles_queryset():
+    return Role.objects.annotate(users_count=Count("users")).order_by("id")
+
+
+class RoleBaseView(APIView):
+    authentication_classes = [UserJWTAuthentication]
+    permission_classes = [IsAdminRole]
+
+
+class RoleListCreateView(RoleBaseView):
+    @extend_schema(
+        tags=ROLE_TAG,
+        summary="لیست نقش‌ها (فقط ادمین)",
+        responses={200: RoleSerializer(many=True), **ADMIN_AUTH},
+    )
+    def get(self, request):
+        return Response(RoleSerializer(roles_queryset(), many=True).data)
+
+    @extend_schema(
+        tags=ROLE_TAG,
+        summary="ساخت نقش جدید با دسترسی پیش‌فرض (فقط ادمین)",
+        request=RoleSerializer,
+        responses={
+            201: RoleSerializer,
+            400: OpenApiResponse(description="داده نامعتبر"),
+            **ADMIN_AUTH,
+        },
+    )
+    def post(self, request):
+        serializer = RoleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        role = serializer.save()
+        return Response(
+            RoleSerializer(roles_queryset().get(pk=role.pk)).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class RoleDetailView(RoleBaseView):
+    @extend_schema(
+        tags=ROLE_TAG,
+        summary="جزئیات نقش (فقط ادمین)",
+        responses={
+            200: RoleSerializer,
+            404: OpenApiResponse(description="نقش پیدا نشد"),
+            **ADMIN_AUTH,
+        },
+    )
+    def get(self, request, pk):
+        role = get_object_or_404(roles_queryset(), pk=pk)
+        return Response(RoleSerializer(role).data)
+
+    @extend_schema(
+        tags=ROLE_TAG,
+        summary="ویرایش نقش (فقط ادمین)",
+        description=(
+            "تغییر default_permissions فقط روی کاربرانی که از این به بعد این نقش را می‌گیرند "
+            "اثر دارد، نه کاربران فعلی."
+        ),
+        request=RoleSerializer,
+        responses={
+            200: RoleSerializer,
+            400: OpenApiResponse(description="داده نامعتبر"),
+            404: OpenApiResponse(description="نقش پیدا نشد"),
+            **ADMIN_AUTH,
+        },
+    )
+    def patch(self, request, pk):
+        role = get_object_or_404(Role, pk=pk)
+        serializer = RoleSerializer(role, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(RoleSerializer(roles_queryset().get(pk=pk)).data)
+
+    @extend_schema(
+        tags=ROLE_TAG,
+        summary="حذف نقش (فقط ادمین)",
+        responses={
+            204: OpenApiResponse(description="حذف شد"),
+            400: OpenApiResponse(description="نقش سیستمی قابل حذف نیست"),
+            404: OpenApiResponse(description="نقش پیدا نشد"),
+            409: OpenApiResponse(description="این نقش کاربر دارد"),
+            **ADMIN_AUTH,
+        },
+    )
+    def delete(self, request, pk):
+        role = get_object_or_404(Role, pk=pk)
+        if role.is_system:
+            raise ValidationError("نقش سیستمی قابل حذف نیست.")
+        try:
+            role.delete()
+        except ProtectedError:
+            return Response(
+                {"detail": "این نقش کاربر دارد. ابتدا نقش آن‌ها را تغییر دهید."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class AccessSchemaView(RoleBaseView):
+    @extend_schema(
+        tags=ROLE_TAG,
+        summary="بخش‌ها و اکشن‌های قابل‌تنظیم دسترسی (برای ساخت فرم در پنل)",
+        responses={200: OpenApiResponse(description="sections، actions و order_statuses"), **ADMIN_AUTH},
+    )
+    def get(self, request):
+        return Response(
+            {"sections": SECTIONS, "actions": ACTIONS, "order_statuses": ORDER_STATUSES}
+        )

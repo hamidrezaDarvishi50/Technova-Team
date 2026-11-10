@@ -22,4 +22,8 @@ urlpatterns = [
     
     # admin
     path("", include(router.urls)),
+    
+    path("roles/", views.RoleListCreateView.as_view(), name="role-list"),
+    path("roles/<int:pk>/", views.RoleDetailView.as_view(), name="role-detail"),
+    path("access-schema/", views.AccessSchemaView.as_view(), name="access-schema"),
 ]

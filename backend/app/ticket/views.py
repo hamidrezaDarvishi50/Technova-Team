@@ -2,7 +2,7 @@ from django.shortcuts import render
 
 # Create your views here.
 from accounts.authentication import UserJWTAuthentication
-from accounts.permission import IsAdminRole
+from accounts.permission import IsAdminRole, HasSectionPermission
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
@@ -11,7 +11,6 @@ from rest_framework.permissions import SAFE_METHODS, AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
-
 from .models import Ticket
 from .serializers import *
 
@@ -31,6 +30,7 @@ class TicketPagination(PageNumberPagination):
 
 class TicketListCreateView(APIView):
 
+    permission_section = "tickets"
     throttle_scope = "contact"
 
     def _method(self):
@@ -46,7 +46,7 @@ class TicketListCreateView(APIView):
     def get_permissions(self):
         if self._method() == "POST":
             return [AllowAny()]
-        return [IsAdminRole()]
+        return [HasSectionPermission()]
 
     def get_throttles(self):
         # محدودیت تعداد فقط روی ثبت پیام؛ ادمین محدود نمی‌شود
@@ -91,7 +91,8 @@ class TicketListCreateView(APIView):
 
 class TicketDetailView(APIView):
     authentication_classes = [UserJWTAuthentication]
-    permission_classes = [IsAdminRole]
+    permission_classes = [HasSectionPermission]
+    permission_section = "tickets"
 
     @extend_schema(
         tags=TAG,

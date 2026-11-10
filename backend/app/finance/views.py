@@ -9,7 +9,7 @@ from .models import DiscountCode
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 
 from accounts.authentication import UserJWTAuthentication
-from accounts.permission import IsAdminRole
+from accounts.permission import IsAdminRole, HasSectionPermission
 from django.db.models import ProtectedError
 from django.shortcuts import get_object_or_404
 
@@ -29,7 +29,8 @@ class DiscountCodeBaseView(APIView):
     """
 
     authentication_classes = [UserJWTAuthentication]
-    permission_classes = [IsAdminRole]
+    permission_classes = [HasSectionPermission]
+    permission_section = "discounts"
 
 
 class DiscountCodeListView(DiscountCodeBaseView):
