@@ -2,7 +2,7 @@
 import { FaArrowLeftLong } from "react-icons/fa6";
 import { MdDevices } from "react-icons/md";
 
-export default function CategoryCard({ img, title, link }) {
+export default function BlogCard({ img, title, link }) {
     return (
         <div
             dir="rtl"
@@ -80,7 +80,7 @@ export default function CategoryCard({ img, title, link }) {
                     />
 
                     <span className="relative">
-                        مشاهده دسته‌بندی
+                        مشاهده
                     </span>
 
                     <FaArrowLeftLong

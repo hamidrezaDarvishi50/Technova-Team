@@ -23,7 +23,7 @@ const footerLinks = [
     links: [
       { title: "صفحه اصلی", href: "/" },
       { title: "فروشگاه", href: "/shop" },
-      { title: "دسته‌بندی محصولات", href: "/categories" },
+      { title: "دسته‌بندی محصولات", href: "/blogs" },
       { title: "تخفیف‌های ویژه", href: "/deals" },
     ],
   },

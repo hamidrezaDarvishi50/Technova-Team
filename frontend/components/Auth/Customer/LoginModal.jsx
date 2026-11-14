@@ -29,12 +29,12 @@ export default function LoginModal({ onClose, onSuccess }) {
     useEffect(() => {
         if (step !== "otp" || seconds <= 0) return;
 
-        const timer = setInterval(() => {
-            setSeconds((previous) => Math.max(previous - 1, 0));
+        const timer = setTimeout(() => {
+            setSeconds((prev) => Math.max(prev - 1, 0));
         }, 1000);
 
-        return () => clearInterval(timer);
-    }, [step, seconds > 0]);
+        return () => clearTimeout(timer);
+    }, [step, seconds]);
 
     useEffect(() => {
         function handleKeyDown(event) {
@@ -59,14 +59,16 @@ export default function LoginModal({ onClose, onSuccess }) {
 
     async function handlePhoneSubmit(event) {
         event.preventDefault();
+        if (loading) return;
+
         setError("");
-        setLoading(true);
 
         if (!/^09\d{9}$/.test(phone)) {
             setError("شماره موبایل باید با 09 شروع شود و ۱۱ رقم باشد.");
             return;
         }
 
+        setLoading(true);
 
         try {
             const result = await handledFetch(
@@ -244,6 +246,7 @@ export default function LoginModal({ onClose, onSuccess }) {
     }
 
     async function handleResend() {
+        if (loading) return;
         setError("");
         setLoading(true);
 
@@ -301,15 +304,8 @@ export default function LoginModal({ onClose, onSuccess }) {
             className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-white/20 px-4 py-6 backdrop-blur-sm"
             onMouseDown={(event) => {
                 if (event.target === event.currentTarget) onClose();
-            }}
-        >
-            <div
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="login-title"
-                dir="rtl"
-                className="relative my-auto w-[55%] h-[76vh] max-w-md overflow-hidden bg-[var(--color-navy)]/85 rounded-[2rem] border border-white/70  shadow-[0_25px_100px_rgba(6,26,64,0.35)] backdrop-blur-2xl"
-            >
+            }}>
+            <div role="dialog" aria-modal="true" aria-labelledby="login-title"dir="rtl" className="relative my-auto w-[55%] h-[76vh] max-w-md overflow-hidden bg-[var(--color-navy)]/85 rounded-[2rem] border border-white/70  shadow-[0_25px_100px_rgba(6,26,64,0.35)] backdrop-blur-2xl">
                 {/* Background effects */}
                 <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-[var(--color-electric)]/20 blur-3xl" />
                 <div className="pointer-events-none absolute -bottom-24 -left-20 h-56 w-56 rounded-full bg-[var(--color-primary)]/15 blur-3xl" />
@@ -317,13 +313,7 @@ export default function LoginModal({ onClose, onSuccess }) {
                 {/* Header */}
                 <div className="relative flex items-center justify-between border-b border-white/70 px-7 py-5">
                         <h1 className="bg-gradient-to-l from-white via-[#BBDFFF] to-[#3295FF] bg-clip-text text-transparent text-3xl font-black ">TechNova</h1>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        aria-label="بستن پنجره"
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-white transition-all duration-300 hover:border-white/30 hover:bg-white/10 focus:border-[#3295FF]"
-
-                    >
+                    <button type="button" onClick={onClose} aria-label="بستن پنجره" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-white transition-all duration-300 hover:border-white/30 hover:bg-white/10 focus:border-[#3295FF]">
                         <FiX size={20}/>
                     </button>
                 </div>

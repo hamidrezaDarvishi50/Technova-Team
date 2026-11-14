@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { FiUser, FiPhone, FiCheckCircle, FiLogOut } from "react-icons/fi";
 import { useAuth } from "../../../context/AuthContext";
+import Link from "next/link";
 
 export default function UserProfilePopover() {
     const { user, logout } = useAuth();
@@ -78,21 +79,15 @@ export default function UserProfilePopover() {
                             </span>
                         </div>
                     </div>
-
-                    <button
-                        type="button"
-                        onClick={() => {
-                            logout();
-                            setIsOpen(false);
-                        }}
-                        className="flex w-full items-center justify-center gap-2
-                            rounded-xl border border-red-100 bg-red-50
-                            px-4 py-3 text-sm font-bold text-red-600
-                            transition hover:bg-red-100"
+                    <Link
+                        href="/user"
+                        onClick={() => setIsOpen(false)}
+                        className="mb-3 flex w-full items-center justify-center rounded-xl bg-[#0755D9] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#0645B5]"
                     >
-                        <FiLogOut size={17} />
-                        خروج از حساب کاربری
-                    </button>
+                        ورود به پنل کاربری
+                    </Link>
+
+
                 </div>
             )}
         </div>

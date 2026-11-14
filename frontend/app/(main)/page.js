@@ -30,9 +30,31 @@ async function getNewestProducts() {
         return null;
     }
 }
+async function getBestSellingProducts() {
+    try {
+        const response = await fetch(
+            `${serverAddress}/products/?sort=best_selling`,
+            { cache: "no-store" }
+        );
+
+        if (!response.ok) {
+            throw new Error(`خطا در دریافت محصولات: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        return Array.isArray(data) ? data : data.results ?? [];
+    } catch (error) {
+        console.error("Best selling products API error:", error);
+        return null;
+    }
+}
+
 
 export default async function Home() {
     const products = await getNewestProducts();
+    const bestProducts = await getNewestProducts();
+
 
     return (
         <>
@@ -125,13 +147,13 @@ export default async function Home() {
                     </div>
 
                     <div className="m-auto flex flex-wrap items-start justify-start gap-4 px-5 sm:px-10">
-                        <p className="w-full py-10 text-center text-[#061A40]">
-                            برای نمایش پرفروش‌ترین محصولات، به endpoint مربوط به آن نیاز داریم.
-                        </p>
+                        <div className="m-auto flex w-full flex-wrap items-start justify-start gap-4 px-5 sm:px-10">
+                            <NewestProductsCarousel bestProducts={bestProducts ?? []} />
+                        </div>
                     </div>
                 </section>
 
-                <ProductComments />
+                {/*<ProductComments />*/}
                 <Connection />
             </div>
         </>
