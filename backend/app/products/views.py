@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 
-from drf_spectacular.utils import extend_schema, OpenApiResponse
+from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter
 
 from accounts.permission import IsAdminRole
 from .models import Category, Product
@@ -22,6 +22,17 @@ from django.db.models import BigIntegerField, ExpressionWrapper, F, ProtectedErr
 
 from django.db.models.functions import Cast
 
+
+PAGE_PARAMS = [
+    OpenApiParameter("page", int, description="شماره‌ی صفحه (از ۱)"),
+    OpenApiParameter("page_size", int, description="تعداد در صفحه (پیش‌فرض ۱۲، حداکثر ۴۸)"),
+]
+
+def paginate(view, request, queryset):
+    paginator = ProductPagination()
+    page = paginator.paginate_queryset(queryset, request, view=view)
+    data = ProductListSerializer(page, many=True, context={"request": request}).data
+    return paginator.get_paginated_response(data)
 
 class PublicReadAdminWriteMixin:
     """
@@ -239,28 +250,28 @@ def apply_filters(queryset, params):
     return queryset.order_by(*SORT_ORDERING[params["sort"]])
 
 
+
+
 class ProductListCreateView(PublicReadAdminWriteMixin, APIView):
     @extend_schema(
-        summary="لیست محصولات (با مرتب‌سازی و فیلتر)",
+        tags=PRODUCT_TAG,
+        summary="لیست محصولات (با مرتب‌سازی، فیلتر و صفحه‌بندی)",
         description=(
             "بدون پارامتر، همه‌ی محصولات از جدیدترین نمایش داده می‌شوند. "
             "فیلتر قیمت روی قیمت نهایی (بعد از تخفیف) اعمال می‌شود."
         ),
-        parameters=[ProductFilterSerializer],
+        parameters=[ProductFilterSerializer, *PAGE_PARAMS],
         responses={
-            200: ProductListSerializer(many=True),
+            200: PaginatedProductListSerializer,
             400: OpenApiResponse(description="پارامتر نامعتبر"),
-        },
-    )
+            404: OpenApiResponse(description="شماره‌ی صفحه نامعتبر"),
+        })
     def get(self, request):
         filters = ProductFilterSerializer(data=request.query_params)
         filters.is_valid(raise_exception=True)
 
         queryset = apply_filters(products_queryset(), filters.validated_data)
-        serializer = ProductListSerializer(
-            queryset, many=True, context={"request": request}
-        )
-        return Response(serializer.data)
+        return paginate(self, request, queryset)
 
     @extend_schema(
         summary="ساخت محصول (فقط ادمین)",
@@ -285,17 +296,15 @@ class ProductListCreateView(PublicReadAdminWriteMixin, APIView):
 class ProductDiscountedListView(PublicReadAdminWriteMixin, APIView):
     @extend_schema(
         tags=PRODUCT_TAG,
-        summary="محصولات تخفیف‌دار (بیشترین تخفیف اول)",
-        responses=ProductListSerializer(many=True),
+        summary="محصولات تخفیف‌دار (بیشترین تخفیف اول، با صفحه‌بندی)",
+        parameters=PAGE_PARAMS,
+        responses={200: PaginatedProductListSerializer},
     )
     def get(self, request):
         queryset = products_queryset().filter(discount__gt=0).order_by(
             "-discount", "-created_at", "-id"
         )
-        serializer = ProductListSerializer(
-            queryset, many=True, context={"request": request}
-        )
-        return Response(serializer.data)
+        return paginate(self, request, queryset)
 
 
 class ProductDetailView(PublicReadAdminWriteMixin, APIView):

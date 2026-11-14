@@ -141,7 +141,7 @@ class MyCommentDetailView(CustomerCommentBase):
 
 
 class AdminCommentBase(APIView):
-    authentication_classes = [HasSectionPermission]
+    authentication_classes = [UserJWTAuthentication]
     permission_classes = [HasSectionPermission]
     permission_section = "comments"
 

@@ -124,3 +124,13 @@ class FavoriteAddSerializer(serializers.Serializer):
         queryset=Product.objects.all(),
         error_messages={"does_not_exist": "محصولی با این name وجود ندارد."},
     )
+
+
+class PaginatedProductListSerializer(serializers.Serializer):
+    count = serializers.IntegerField()
+    total_pages = serializers.IntegerField()
+    page = serializers.IntegerField()
+    page_size = serializers.IntegerField()
+    next = serializers.CharField(allow_null=True)
+    previous = serializers.CharField(allow_null=True)
+    results = ProductListSerializer(many=True)

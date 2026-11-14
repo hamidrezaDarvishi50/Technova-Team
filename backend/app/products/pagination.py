@@ -3,7 +3,7 @@ from rest_framework.response import Response
 
 
 class ProductPagination(PageNumberPagination):
-    page_size = 30  # پیش‌فرض (مناسب گرید ۳ یا ۴ ستونه)
+    page_size = 3  # پیش‌فرض (مناسب گرید ۳ یا ۴ ستونه)
     page_size_query_param = "page_size"
     max_page_size = 48
 

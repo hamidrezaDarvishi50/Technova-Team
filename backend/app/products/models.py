@@ -60,5 +60,5 @@ class Product(models.Model):
     
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = unique_slugify(self, self.title)
+            self.slug = unique_slugify(self, self.name)
         super().save(*args, **kwargs)
