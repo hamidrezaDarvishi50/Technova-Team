@@ -6,21 +6,20 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.permissions import SAFE_METHODS, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
+
+
+from django.db.models import BigIntegerField, ExpressionWrapper, F, ProtectedError, Q
+from django.db.models.functions import Cast
 
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter
 
-from accounts.permission import IsAdminRole
-from .models import Category, Product
+from .models import Category, Product, ProductImage
 from .serializers import *
 from .pagination import ProductPagination
-
 from accounts.authentication import CustomerJWTAuthentication
 from accounts.permission import IsCustomer, HasSectionPermission
-
-from django.db.models import BigIntegerField, ExpressionWrapper, F, ProtectedError, Q
-
-from django.db.models.functions import Cast
 
 
 PAGE_PARAMS = [
@@ -250,8 +249,6 @@ def apply_filters(queryset, params):
     return queryset.order_by(*SORT_ORDERING[params["sort"]])
 
 
-
-
 class ProductListCreateView(PublicReadAdminWriteMixin, APIView):
     @extend_schema(
         tags=PRODUCT_TAG,
@@ -318,7 +315,7 @@ class ProductDetailView(PublicReadAdminWriteMixin, APIView):
         },
     )
     def get(self, request, slug):
-        product = get_object_or_404(products_queryset(), slug=slug)
+        product = get_object_or_404(products_queryset().prefetch_related("images"), slug=slug)
         serializer = ProductDetailSerializer(product, context={"request": request})
         return Response(serializer.data)
 
@@ -355,7 +352,8 @@ class ProductDetailView(PublicReadAdminWriteMixin, APIView):
     )
     def delete(self, request, slug):
         product = get_object_or_404(Product, slug=slug)
-        image = product.image
+        files = [product.image] if product.image else []
+        files += [img.image for img in product.images.all()]
         try:
             product.delete()
         except ProtectedError:
@@ -363,6 +361,60 @@ class ProductDetailView(PublicReadAdminWriteMixin, APIView):
                 {"detail": "این محصول در سفارش‌ها استفاده شده و قابل حذف نیست."},
                 status=status.HTTP_409_CONFLICT,
             )
-        if image:
-            image.delete(save=False)  
+        for f in files:
+            f.delete(save=False)  # فایل‌ها فقط بعد از حذف موفق پاک می‌شوند
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ProductImageUploadView(PublicReadAdminWriteMixin, APIView):
+    parser_classes = [MultiPartParser, FormParser]
+
+    @extend_schema(
+        tags=PRODUCT_TAG,
+        summary="آپلود چند عکس برای محصول (فقط ادمین)",
+        request={"multipart/form-data": ProductImageUploadSerializer},
+        responses={
+            201: ProductImageSerializer(many=True),
+            400: OpenApiResponse(description="فایل نامعتبر یا تعداد تصاویر بیش از حد"),
+            404: OpenApiResponse(description="محصول پیدا نشد"),
+        },
+    )
+    def post(self, request, slug):
+        product = get_object_or_404(Product, slug=slug)
+        s = ProductImageUploadSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        files = s.validated_data["images"]
+
+        existing = product.images.count()
+        if existing + len(files) > MAX_PRODUCT_IMAGES:
+            raise ValidationError(
+                {"images": f"حداکثر {MAX_PRODUCT_IMAGES} تصویر برای هر محصول مجاز است."}
+            )
+
+        created = [
+            ProductImage.objects.create(
+                product=product,
+                image=f,
+                alt=s.validated_data.get("alt", ""),
+                order=existing + i,
+            )
+            for i, f in enumerate(files)
+        ]
+        return Response(
+            ProductImageSerializer(created, many=True, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ProductImageDeleteView(PublicReadAdminWriteMixin, APIView):
+    @extend_schema(
+        tags=PRODUCT_TAG,
+        summary="حذف یک عکس محصول (فقط ادمین)",
+        responses={204: OpenApiResponse(description="حذف شد"),
+                   404: OpenApiResponse(description="پیدا نشد")},
+    )
+    def delete(self, request, slug, image_id):
+        img = get_object_or_404(ProductImage, pk=image_id, product__slug=slug)
+        img.image.delete(save=False)  # فایل روی دیسک هم پاک شود
+        img.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

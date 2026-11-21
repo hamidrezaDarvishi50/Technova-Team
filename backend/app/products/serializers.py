@@ -1,12 +1,32 @@
 from rest_framework import serializers
 from .models import *
 
+MAX_IMAGE_SIZE = 2 * 1024 * 1024  # 2MB
+MAX_PRODUCT_IMAGES = 10
+
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = ["id", "title", "image", "slug" ,"created_at", "updated_at"]
         read_only_fields = ["id", "created_at", "updated_at"]
 
+class ProductImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductImage
+        fields = ["id", "image", "alt", "order"]
+        read_only_fields = fields
+
+class ProductImageUploadSerializer(serializers.Serializer):
+    images = serializers.ListField(
+        child=serializers.ImageField(), allow_empty=False, max_length=MAX_PRODUCT_IMAGES
+    )
+    alt = serializers.CharField(required=False, allow_blank=True, max_length=150)
+
+    def validate_images(self, files):
+        for f in files:
+            if f.size > MAX_IMAGE_SIZE:  # همان ثابت ۲ مگابایتی بالای فایل
+                raise serializers.ValidationError("حجم هر تصویر نباید بیشتر از ۲ مگابایت باشد.")
+        return files
 
 class ProductListSerializer(serializers.ModelSerializer):
     """نمایش خلاصه‌ی محصول در لیست‌ها (محصولات، تخفیف‌ها، علاقه‌مندی‌ها، دسته‌بندی)."""
@@ -33,8 +53,10 @@ class ProductListSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
-
 class ProductDetailSerializer(ProductListSerializer):
+    
+    images = ProductImageSerializer(many=True, read_only=True)
+        
     class Meta(ProductListSerializer.Meta):
         fields = ProductListSerializer.Meta.fields + [
             "description",
@@ -42,9 +64,9 @@ class ProductDetailSerializer(ProductListSerializer):
             "updated_at",
             "seo_title",
             "meta_description",
+            "images"
         ]
         read_only_fields = fields
-
 
 class ProductWriteSerializer(serializers.ModelSerializer):
     """ساخت و ویرایش محصول (فقط ادمین)."""
@@ -66,6 +88,8 @@ class ProductWriteSerializer(serializers.ModelSerializer):
             "stock",
             "discount",
             "description",
+            "seo_title",
+            "meta_description",
         ]
         read_only_fields = ["id"]
 
@@ -87,7 +111,6 @@ class ProductWriteSerializer(serializers.ModelSerializer):
         if old_name and old_name != new_name:
             instance.image.storage.delete(old_name)
         return instance
-
 
 class ProductFilterSerializer(serializers.Serializer):
     """query params لیست محصولات."""
@@ -118,7 +141,6 @@ class ProductFilterSerializer(serializers.Serializer):
             raise serializers.ValidationError("min_price نباید بزرگ‌تر از max_price باشد.")
         return attrs
 
-
 class FavoriteAddSerializer(serializers.Serializer):
 
     product = serializers.SlugRelatedField(
@@ -126,7 +148,6 @@ class FavoriteAddSerializer(serializers.Serializer):
         queryset=Product.objects.all(),
         error_messages={"does_not_exist": "محصولی با این name وجود ندارد."},
     )
-
 
 class PaginatedProductListSerializer(serializers.Serializer):
     count = serializers.IntegerField()
@@ -136,27 +157,3 @@ class PaginatedProductListSerializer(serializers.Serializer):
     next = serializers.CharField(allow_null=True)
     previous = serializers.CharField(allow_null=True)
     results = ProductListSerializer(many=True)
-
-
-
-MAX_PRODUCT_IMAGES = 10
-
-
-class ProductImageSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ProductImage
-        fields = ["id", "image", "alt", "order"]
-        read_only_fields = fields
-
-
-class ProductImageUploadSerializer(serializers.Serializer):
-    images = serializers.ListField(
-        child=serializers.ImageField(), allow_empty=False, max_length=MAX_PRODUCT_IMAGES
-    )
-    alt = serializers.CharField(required=False, allow_blank=True, max_length=150)
-
-    def validate_images(self, files):
-        for f in files:
-            if f.size > MAX_IMAGE_SIZE:  # همان ثابت ۲ مگابایتی بالای فایل
-                raise serializers.ValidationError("حجم هر تصویر نباید بیشتر از ۲ مگابایت باشد.")
-        return files

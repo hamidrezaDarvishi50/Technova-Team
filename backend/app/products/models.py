@@ -43,8 +43,8 @@ class Product(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     discount = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(99)])
     sold_count = models.PositiveIntegerField(default=0)
-    seo_title = models.CharField(max_length=70, blank=True, default="")  # خالی باشد، نام محصول استفاده می‌شود
-    meta_description = models.CharField(max_length=160, blank=True, default="")
+    seo_title = models.CharField(max_length=70, blank=True)
+    meta_description = models.CharField(max_length=160, blank=True)
 
     @property
     def final_price(self):

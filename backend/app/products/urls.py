@@ -11,4 +11,7 @@ urlpatterns = [
     path("discounted/",ProductDiscountedListView.as_view(), name="product-discounted"),
     path("", ProductListCreateView.as_view(), name="product-list"),
     path("<str:slug>/", ProductDetailView.as_view(), name="product-detail"),
+    
+    path("<str:slug>/images/", ProductImageUploadView.as_view(), name="product-image-upload"),
+    path("<str:slug>/images/<int:image_id>/", ProductImageDeleteView.as_view(), name="product-image-delete"),
 ]
