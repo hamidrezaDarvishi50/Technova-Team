@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, Product
+from .models import *
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -40,6 +40,8 @@ class ProductDetailSerializer(ProductListSerializer):
             "description",
             "created_at",
             "updated_at",
+            "seo_title",
+            "meta_description",
         ]
         read_only_fields = fields
 
@@ -134,3 +136,27 @@ class PaginatedProductListSerializer(serializers.Serializer):
     next = serializers.CharField(allow_null=True)
     previous = serializers.CharField(allow_null=True)
     results = ProductListSerializer(many=True)
+
+
+
+MAX_PRODUCT_IMAGES = 10
+
+
+class ProductImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductImage
+        fields = ["id", "image", "alt", "order"]
+        read_only_fields = fields
+
+
+class ProductImageUploadSerializer(serializers.Serializer):
+    images = serializers.ListField(
+        child=serializers.ImageField(), allow_empty=False, max_length=MAX_PRODUCT_IMAGES
+    )
+    alt = serializers.CharField(required=False, allow_blank=True, max_length=150)
+
+    def validate_images(self, files):
+        for f in files:
+            if f.size > MAX_IMAGE_SIZE:  # همان ثابت ۲ مگابایتی بالای فایل
+                raise serializers.ValidationError("حجم هر تصویر نباید بیشتر از ۲ مگابایت باشد.")
+        return files

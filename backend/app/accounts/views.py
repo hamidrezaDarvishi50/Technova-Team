@@ -15,9 +15,9 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiResponse
 from django.conf import settings
-
 from django.db import transaction
-from django.db.models import ProtectedError, Count
+from django.db.models import Count, ProtectedError
+
 from django.shortcuts import get_object_or_404
 from .authentication import (
     ACTOR_CUSTOMER,
@@ -449,8 +449,9 @@ class RoleDetailView(RoleBaseView):
         tags=ROLE_TAG,
         summary="ویرایش نقش (فقط ادمین)",
         description=(
-            "تغییر default_permissions فقط روی کاربرانی که از این به بعد این نقش را می‌گیرند "
-            "اثر دارد، نه کاربران فعلی."
+            "به‌صورت پیش‌فرض تغییر default_permissions فقط روی کاربرانی اثر دارد که از این به بعد "
+            "این نقش را می‌گیرند. با apply_to_users=true دسترسی همه‌ی کاربران فعلی این نقش هم "
+            "به قالب جدید ریست می‌شود (دسترسی‌های دستی آن‌ها پاک می‌شود)."
         ),
         request=RoleSerializer,
         responses={
@@ -462,9 +463,22 @@ class RoleDetailView(RoleBaseView):
     )
     def patch(self, request, pk):
         role = get_object_or_404(Role, pk=pk)
+
+        apply_to_users = request.data.get("apply_to_users", False)
+        if isinstance(apply_to_users, str):
+            apply_to_users = apply_to_users.strip().lower() in ("true", "1")
+        elif not isinstance(apply_to_users, bool):
+            raise ValidationError({"apply_to_users": "باید true یا false باشد."})
+
         serializer = RoleSerializer(role, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+
+        with transaction.atomic():
+            role = serializer.save()
+            if apply_to_users:
+                for user in role.users.select_related("role"):
+                    user.reset_permissions_to_role_default()
+
         return Response(RoleSerializer(roles_queryset().get(pk=pk)).data)
 
     @extend_schema(

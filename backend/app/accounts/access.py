@@ -25,6 +25,7 @@ SECTIONS = [
     "customers",
     "leads",
     "tasks",
+    "blogs"
 ]
 ACTIONS = ["view", "create", "edit", "delete"]
 

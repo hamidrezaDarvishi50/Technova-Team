@@ -240,7 +240,7 @@ def products_queryset():
 
 def apply_filters(queryset, params):
     if "category" in params:
-        queryset = queryset.filter(category__title=params["category"])
+        queryset = queryset.filter(category__slug=params["category"])
     if "min_price" in params:
         queryset = queryset.filter(effective_price__gte=params["min_price"])
     if "max_price" in params:

@@ -29,7 +29,7 @@ class Category(models.Model):
         if not self.slug:
             self.slug = unique_slugify(self, self.title)   
         super().save(*args, **kwargs)
-
+        
 
 class Product(models.Model):
     category = models.ForeignKey("Category", on_delete=models.PROTECT, related_name="products",)
@@ -43,6 +43,8 @@ class Product(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     discount = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(99)])
     sold_count = models.PositiveIntegerField(default=0)
+    seo_title = models.CharField(max_length=70, blank=True, default="")  # خالی باشد، نام محصول استفاده می‌شود
+    meta_description = models.CharField(max_length=160, blank=True, default="")
 
     @property
     def final_price(self):
@@ -62,3 +64,17 @@ class Product(models.Model):
         if not self.slug:
             self.slug = unique_slugify(self, self.name)
         super().save(*args, **kwargs)
+    
+
+class ProductImage(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="images")
+    image = models.ImageField(upload_to="products/gallery/")
+    alt = models.CharField(max_length=150, blank=True)
+    order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["order", "id"]
+
+    def __str__(self):
+        return f"{self.product_id} - {self.id}"

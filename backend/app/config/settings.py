@@ -30,6 +30,7 @@ DEBUG = True
 ALLOWED_HOSTS = [
     "192.168.100.108",
     "192.168.100.95",
+    "192.168.100.161",
     "localhost",
     "127.0.0.1",
 ]
@@ -202,13 +203,13 @@ REST_FRAMEWORK = {
     #     'rest_framework.throttling.UserRateThrottle',
     # ],
 
-    # "DEFAULT_THROTTLE_RATES": {
-    #     "otp": "10/hour",
-    #     "login": "1000/min",
-    #     "anon": "100/hour",
-    #     "user": "1000/hour",
-    #     "contact": "5/hour",
-    # },
+    "DEFAULT_THROTTLE_RATES": {
+        "otp": "10/hour",
+        "login": "1000/min",
+        "anon": "100/hour",
+        "user": "1000/hour",
+        "contact": "5/hour",
+    },
 }
 
 
