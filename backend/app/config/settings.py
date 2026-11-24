@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     "blog",
     "leads",
     "customers",
+    "tasks",
 ]
 
 MIDDLEWARE = [
@@ -180,8 +181,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "shopping.tasks.cancel_expired_orders",
         "schedule": 600.0,  # هر ۱۰ دقیقه
     },
+    "generate_periodic_tasks": {
+        "task": "tasks.generate_periodic_tasks",
+        "schedule": 300.0,
+    },
 }
-
 
 CACHES = {
     "default": {
