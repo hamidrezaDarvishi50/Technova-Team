@@ -11,6 +11,8 @@ from rest_framework.permissions import SAFE_METHODS, AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
+from django.db import transaction
+from leads.services import create_lead_from_ticket
 from .models import Ticket
 from .serializers import *
 
@@ -68,7 +70,9 @@ class TicketListCreateView(APIView):
     def post(self, request):
         serializer = TicketCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        with transaction.atomic():  # یا هر دو ساخته می‌شوند یا هیچ‌کدام
+            ticket = serializer.save()
+            create_lead_from_ticket(ticket)
         return Response(
             {"detail": "پیام شما با موفقیت ثبت شد."}, status=status.HTTP_201_CREATED
         )

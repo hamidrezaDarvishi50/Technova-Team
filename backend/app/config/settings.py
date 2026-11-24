@@ -57,6 +57,8 @@ INSTALLED_APPS = [
     "shopping",
     "ticket",
     "blog",
+    "leads",
+    "customers",
 ]
 
 MIDDLEWARE = [
